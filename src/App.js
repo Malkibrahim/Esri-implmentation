@@ -248,7 +248,7 @@ export class WebMapView extends React.Component {
               color: [255, 255, 255],
               width: 2,
             },
-            size: 10,
+            size: 15,
           };
           var attributes = {
             Name: "" + "governorate code : " + i.governorate_code + "",
