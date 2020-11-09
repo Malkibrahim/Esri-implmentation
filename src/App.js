@@ -15,10 +15,16 @@ export class WebMapView extends React.Component {
   state = {
     data: items,
     govs: governorate,
-    currentGov: null,
+    currentGov: 2,
+    currentGovName: "Alexandria",
+
     curentLocation: null,
     index: -1,
     location: {},
+    zoom: 0,
+    currentRepArr: [],
+    salesRepFlag: true,
+    merchantFlag: true,
   };
 
   loadMap = () => {
@@ -56,7 +62,7 @@ export class WebMapView extends React.Component {
             this.state.curentLocation == null
               ? [29.9187387, 31.2000924]
               : [this.state.curentLocation.lat, this.state.curentLocation.long],
-          zoom: 13,
+          zoom: 11,
         });
         console.log(this.mapRef.current);
         var graphicsLayer = new GraphicsLayer();
@@ -66,7 +72,7 @@ export class WebMapView extends React.Component {
         var coordinateConversionWidget = new CoordinateConversion({
           view: view,
         });
-        view.ui.add(coordinateConversionWidget, "bottom-right");
+        // view.ui.add(coordinateConversionWidget, "bottom-right");
         // view.ui.add(coordsWidget, "bottom-right");
         const showCoordinates = (pt) => {
           var coords =
@@ -80,15 +86,37 @@ export class WebMapView extends React.Component {
             view.zoom;
           coordinateConversionWidget.innerHTML = coords;
           // console.log(coordinateConversionWidget);
-          // console.log(pt.x.toFixed(3), pt.y.toFixed(3), view.zoom);
+          console.log(view.zoom);
+          this.setState({ zoom: view.zoom });
+          if (view.zoom == 12 && this.state.salesRepFlag == true) {
+            // debugger;
+            this.setState({ salesRepFlag: false });
+            this.getSales(Graphic, graphicsLayer, this.state.currentGov);
+          }
+          if (view.zoom == 14 && this.state.merchantFlag == true) {
+            this.setState({ merchantFlag: false });
+
+            this.state.currentRepArr.map((item) => {
+              this.getMerchants(Graphic, graphicsLayer, item.rep_code);
+            });
+            if (view.zoom == 12 && this.state.salesRepFlag == false) {
+              this.setState({ salesRepFlag: true });
+              console.log("drilledUp");
+            }
+            if (view.zoom == 14 && this.state.salesRepFlag == false) {
+              this.setState({ salesRepFlag: true });
+
+              console.log("drilledUp");
+            }
+          }
         };
         view.watch("stationary", function (isStationary) {
           showCoordinates(view.center);
         });
 
-        view.on("pointer-move", function (evt) {
-          showCoordinates(view.toMap({ x: evt.x, y: evt.y }));
-        });
+        // view.on("pointer-move", function (evt) {
+        //   showCoordinates(view.toMap({ x: evt.x, y: evt.y }));
+        // });
         /////scrolling zoom in & out
 
         ///////search to place
@@ -151,285 +179,271 @@ export class WebMapView extends React.Component {
         ///////search to place
 
         /////find plkaces/////
-        var places = [
-          "Coffee shop",
-          "Gas station",
-          "Food",
-          "Hotel",
-          "Parks and Outdoors",
-        ];
+        // var places = [
+        //   "Coffee shop",
+        //   "Gas station",
+        //   "Food",
+        //   "Hotel",
+        //   "Parks and Outdoors",
+        // ];
 
-        var select = document.createElement("select", "");
-        select.setAttribute("class", "esri-widget esri-select");
-        select.setAttribute(
-          "style",
-          "width: 175px; font-family: Avenir Next W00; font-size: 1em"
-        );
-        places.forEach(function (p) {
-          var option = document.createElement("option");
-          option.value = p;
-          option.innerHTML = p;
-          select.appendChild(option);
-        });
+        // var select = document.createElement("select", "");
+        // select.setAttribute("class", "esri-widget esri-select");
+        // select.setAttribute(
+        //   "style",
+        //   "width: 175px; font-family: Avenir Next W00; font-size: 1em"
+        // );
+        // places.forEach(function (p) {
+        //   var option = document.createElement("option");
+        //   option.value = p;
+        //   option.innerHTML = p;
+        //   select.appendChild(option);
+        // });
 
-        view.ui.add(select, "top-right");
-        var locator = new Locator({
-          url:
-            "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer",
-        });
-        function findPlaces(category, pt) {
-          locator
-            .addressToLocations({
-              location: pt,
-              categories: [category],
-              maxLocations: 25,
-              outFields: ["Place_addr", "PlaceName"],
-            })
-            .then(function (results) {
-              // Clear the map
-              view.popup.close();
-              view.graphics.removeAll();
-              // Add graphics
-              results.forEach(function (result) {
-                view.graphics.add(
-                  new Graphic({
-                    attributes: result.attributes,
-                    geometry: result.location,
-                    symbol: {
-                      type: "simple-marker",
-                      color: "#000000",
-                      size: "12px",
-                      outline: {
-                        color: "#ffffff",
-                        width: "2px",
-                      },
-                    },
-                    popupTemplate: {
-                      title: "{PlaceName}",
-                      content: "{Place_addr}",
-                    },
-                  })
-                );
-              });
-            });
-        }
-        // Search for places in center of map when the app loads
-        findPlaces(select.value, view.center);
+        // view.ui.add(select, "top-right");
+        // var locator = new Locator({
+        //   url:
+        //     "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer",
+        // });
+        // function findPlaces(category, pt) {
+        //   locator
+        //     .addressToLocations({
+        //       location: pt,
+        //       categories: [category],
+        //       maxLocations: 25,
+        //       outFields: ["Place_addr", "PlaceName"],
+        //     })
+        //     .then(function (results) {
+        //       // Clear the map
+        //       view.popup.close();
+        //       view.graphics.removeAll();
+        //       // Add graphics
+        //       results.forEach(function (result) {
+        //         view.graphics.add(
+        //           new Graphic({
+        //             attributes: result.attributes,
+        //             geometry: result.location,
+        //             symbol: {
+        //               type: "simple-marker",
+        //               color: "#000000",
+        //               size: "12px",
+        //               outline: {
+        //                 color: "#ffffff",
+        //                 width: "2px",
+        //               },
+        //             },
+        //             popupTemplate: {
+        //               title: "{PlaceName}",
+        //               content: "{Place_addr}",
+        //             },
+        //           })
+        //         );
+        //       });
+        //     });
+        // }
+        // // Search for places in center of map when the app loads
+        // findPlaces(select.value, view.center);
 
-        // Listen for category changes and find places
-        select.addEventListener("change", function (event) {
-          findPlaces(event.target.value, view.center);
-        });
+        // // Listen for category changes and find places
+        // select.addEventListener("change", function (event) {
+        //   findPlaces(event.target.value, view.center);
+        // });
 
-        // Listen for mouse clicks and find places
-        view.on("click", function (event) {
-          view.hitTest(event.screenPoint).then(function (response) {
-            if (response.results.length < 2) {
-              // If graphic is not clicked, find places
-              findPlaces(
-                select.options[select.selectedIndex].text,
-                event.mapPoint
-              );
-            }
-          });
-        });
+        // // Listen for mouse clicks and find places
+        // view.on("click", function (event) {
+        //   view.hitTest(event.screenPoint).then(function (response) {
+        //     if (response.results.length < 2) {
+        //       // If graphic is not clicked, find places
+        //       findPlaces(
+        //         select.options[select.selectedIndex].text,
+        //         event.mapPoint
+        //       );
+        //     }
+        //   });
+        // });
         /////find plkaces/////
-        this.state.govs.map((i, index) => {
-          var point = {
+        this.drawGovs(Graphic, graphicsLayer);
+      }
+    );
+  };
+
+  drawGovs = (Graphic, graphicsLayer) => {
+    this.state.govs.map((i, index) => {
+      var point = {
+        type: "point",
+        latitude: i.location.long,
+        longitude: i.location.lat,
+      };
+      var simpleMarkerSymbol = {
+        type: "simple-marker",
+        style: "triangle",
+        color: "#aa3a3a",
+        outline: {
+          color: [255, 255, 255],
+          width: 2,
+        },
+        size: 10,
+      };
+      var attributes = {
+        Name: "" + "governorate  : " + i.ar_name + "",
+        Location: " Point Dume State Beach",
+      };
+
+      const getInfo = async (feature) => {
+        this.setState({ index });
+        console.log(this.state.govs[index]);
+        const gov_code = { gov_code: this.state.govs[index].gov_code };
+        this.setState({ currentGov: gov_code });
+        console.log(gov_code);
+      };
+
+      var popupTemplate = {
+        title: "{Name}",
+        // content: "" + "merchant code : " + i.damen_merchant_code + "",
+        content: getInfo,
+      };
+
+      var pointGraphic2 = new Graphic({
+        geometry: point,
+        symbol: simpleMarkerSymbol,
+        attributes: attributes,
+        popupTemplate: popupTemplate,
+        index: index,
+      });
+
+      graphicsLayer.add(pointGraphic2);
+    });
+  };
+
+  getSales = async (Graphic, graphicsLayer, gov_code) => {
+    // debugger;
+    // const test = await GetSales(gov_code);
+    // console.log(test.data);
+    await axios
+      .post("http://10.43.30.182:16797/bi-api/maps/reps", gov_code)
+      .then((res) => {
+        console.log(res.data);
+        this.setState({ currentRepArr: res.data });
+        console.log(this.state.currentRepArr);
+
+        // debugger;
+        res.data.map((item, index) => {
+          // debugger;
+          // console.log("item",item)
+          const pointSales = {
             type: "point",
-            latitude: i.location.long,
-            longitude: i.location.lat,
+            latitude: item.location.lat,
+            longitude: item.location.long,
           };
-          var simpleMarkerSymbol = {
+          const simpleMarkerSymbolSales = {
             type: "simple-marker",
-            style: "triangle",
-            color: "#aa3a3a",
+            // style: "triangle",
+            color: "" + item.status + "",
             outline: {
               color: [255, 255, 255],
               width: 2,
             },
-            size: 15,
+            size: 10,
           };
-          var attributes = {
-            Name: "" + "governorate code : " + i.governorate_code + "",
+          const attributesSales = {
+            Name: "" + "Sales code : " + item.rep_code + "",
             Location: " Point Dume State Beach",
           };
 
-          const getInfo = async (feature) => {
+          const getInfo = (feature) => {
             this.setState({ index });
-            console.log(this.state.govs[index]);
-            const gov_code = { gov_code: this.state.govs[index].gov_code };
-            await axios
-              .post("http://10.43.30.182:16797/bi-api/maps/reps", gov_code)
-              .then((res) => {
-                console.log(res.data);
-                debugger;
-                res.data.map((item, index) => {
-                  // debugger;
-                  const pointSales = {
-                    type: "point",
-                    latitude: item.location.lat,
-                    longitude: item.location.long,
-                  };
-                  console.log("hhhh");
-                  const simpleMarkerSymbolSales = {
-                    type: "simple-marker",
-                    // style: "triangle",
-                    color: "" + item.status + "",
-                    outline: {
-                      color: [255, 255, 255],
-                      width: 2,
-                    },
-                    size: 10,
-                  };
-                  const attributesSales = {
-                    Name: "" + "Sales code : " + i.rep_code + "",
-                    Location: " Point Dume State Beach",
-                  };
+            let content = "" + "district_name : " + item.district_name + "";
 
-                  const getInfo = (feature) => {
-                    this.setState({ index });
-                    let content =
-                      "" + "district_name : " + item.district_name + "";
+            this.getMerchants(Graphic, graphicsLayer, item.rep_code);
 
-                    return content;
-                  };
-                  const popupTemplateSales = {
-                    title: "{Name}",
-                    // content: "" + "merchant code : " + i.damen_merchant_code + "",
-                    content: getInfo,
-                  };
-
-                  var pointGraphic3 = new Graphic({
-                    geometry: pointSales,
-                    symbol: simpleMarkerSymbolSales,
-                    attributes: attributesSales,
-                    popupTemplate: popupTemplateSales,
-                    index: index,
-                  });
-                  graphicsLayer.add(pointGraphic3);
-                });
-              });
+            return content;
           };
-
-          var popupTemplate = {
+          const popupTemplateSales = {
             title: "{Name}",
             // content: "" + "merchant code : " + i.damen_merchant_code + "",
             content: getInfo,
           };
 
-          var pointGraphic2 = new Graphic({
-            geometry: point,
-            symbol: simpleMarkerSymbol,
-            attributes: attributes,
-            popupTemplate: popupTemplate,
+          var pointGraphic3 = new Graphic({
+            geometry: pointSales,
+            symbol: simpleMarkerSymbolSales,
+            attributes: attributesSales,
+            popupTemplate: popupTemplateSales,
             index: index,
           });
-
-          graphicsLayer.add(pointGraphic2);
+          graphicsLayer.add(pointGraphic3);
         });
-      }
-    );
+      })
+      .catch((err) => console.log(err, "dd"));
   };
-  //       this.state.data.map((i, index) => {
-  //         var point = {
-  //           type: "point",
-  //           longitude: i.y_coordinate,
-  //           latitude: i.x_coordinate,
-  //         };
-  //         if (i.y_coordinate <= 30) {
-  //           var simpleMarkerSymbol = {
-  //             type: "simple-marker",
-  //             color: [0, 150, 50],
-  //             outline: {
-  //               color: [255, 255, 255],
-  //               width: 2,
-  //             },
-  //             size: 10,
-  //           };
-  //         } else if (i.y_coordinate >= 30) {
-  //           var simpleMarkerSymbol = {
-  //             type: "simple-marker",
-  //             // style:"triangle",
-  //             color: "#aa3a3a",
-  //             outline: {
-  //               color: [255, 255, 255],
-  //               width: 2,
-  //             },
-  //             size: 10,
-  //           };
-  //         }
 
-  //         var attributes = {
-  //           Name: "" + "governorate code : " + i.governorate_code + "",
-  //           Location: " Point Dume State Beach",
-  //         };
+  getMerchants = async (Graphic, graphicsLayer, rep_code) => {
+    await axios
+      .post("http://10.43.30.182:16797/bi-api/maps/merchs", {
+        rep_code: rep_code,
+      })
+      .then((res) => {
+        // console.log("hghghgfhgfh",res.data);
+        // debugger;
+        res.data.map((item, index) => {
+          // debugger;
+          // console.log("item",item)
+          const pointSales = {
+            type: "point",
+            latitude: item.location.lat,
+            longitude: item.location.long,
+          };
+          const simpleMarkerSymbolSales = {
+            type: "simple-marker",
+            style: "square",
+            color: "" + item.status + "",
+            outline: {
+              color: [255, 255, 255],
+              width: 2,
+            },
+            size: 10,
+          };
+          const attributesSales = {
+            Name: "" + "Merchant code : " + item.merch_code + "",
+            Location: " Point Dume State Beach",
+          };
 
-  //         const getInfo = (feature) => {
-  //           this.setState({ index });
-  //           let content = "" + "merchant code : " + i.damen_merchant_code + "";
-  //           console.log(this.state.govs[index]);
-  //           return content;
-  //         };
-  //         var popupTemplate = {
-  //           title: "{Name}",
-  //           // content: "" + "merchant code : " + i.damen_merchant_code + "",
-  //           content: getInfo,
-  //         };
+          const getInfo = (feature) => {
+            this.setState({ index });
+            // let content =
+            //   " " + "district_name : " + item.district_name + "";
 
-  //         var pointGraphic = new Graphic({
-  //           geometry: point,
-  //           symbol: simpleMarkerSymbol,
-  //           attributes: attributes,
-  //           popupTemplate: popupTemplate,
-  //           // index:index,
-  //         });
+            return "  ";
+          };
+          const popupTemplateSales = {
+            title: "{Name}",
+            // content: "" + "merchant code : " + i.damen_merchant_code + "",
+            content: getInfo,
+          };
 
-  //         graphicsLayer.add(pointGraphic);
-  //       });
-  //       var polygon = {
-  //         type: "polygon",
-  //         rings: [
-  //           [30.0228069, 31.2142028],
-  //           [30.029507, 31.212698],
-  //           [30.0281133, 31.2106249],
-  //           [30.0236394, 31.2073342],
-  //           [30.0209446, 31.2057394],
-  //           [30.0175873, 31.2050287],
-  //         ],
-  //       };
-
-  //       var simpleFillSymbol = {
-  //         type: "simple-fill",
-  //         color: [227, 139, 79, 0.8],
-
-  //         outline: {
-  //           color: [255, 255, 255],
-  //           width: 1,
-  //         },
-  //         // style: "backward-diagonal",
-  //       };
-
-  //       var polygonGraphic = new Graphic({
-  //         geometry: polygon,
-  //         symbol: simpleFillSymbol,
-  //       });
-
-  //       graphicsLayer.add(polygonGraphic);
-  //     }
-  //   );
-  // };
-
+          var pointGraphic3 = new Graphic({
+            geometry: pointSales,
+            symbol: simpleMarkerSymbolSales,
+            attributes: attributesSales,
+            popupTemplate: popupTemplateSales,
+            index: index,
+          });
+          graphicsLayer.add(pointGraphic3);
+        });
+      });
+  };
   handleChange = (e) => {
     console.log("hiii");
     const currentGov = e.target.value;
-    this.setState({ currentGov }, () => {
-      console.log(this.state.currentGov);
-    });
+    this.setState({ currentGovName: currentGov });
     // console.log(e.target.value);
     debugger;
     const govDetail = this.state.govs.find((g) => g.en_name == currentGov);
     const location = govDetail.location;
+    const govCode = govDetail.gov_code;
+    this.setState({ currentGov: govCode }, () => {
+      console.log(this.state.currentGov);
+    });
     this.setState({ curentLocation: location });
 
     console.log(this.state.curentLocation);
@@ -501,7 +515,7 @@ export class WebMapView extends React.Component {
     return (
       <div>
         <select
-          value={this.state.currentGov}
+          value={this.state.currentGovName}
           onChange={(e) => this.handleChange(e)}
         >
           {this.state.govs.map((i) => {
@@ -540,6 +554,30 @@ export class WebMapView extends React.Component {
                   </view>
                 );
               })}
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                border: "1px solid grey",
+              }}
+            >
+              <div>
+                <span>Governorate : </span>
+                <i
+                  class="fa fa-caret-up"
+                  style={{ fontSize: 30, paddingTop: 10 }}
+                ></i>
+              </div>
+              <div>
+                <span>Sales Representative : </span>
+                <i class="fa fa-circle" style={{ fontSize: 15 }}></i>
+              </div>
+              <div>
+                <span>Merchants : </span>
+                <i class="fa fa-square" style={{ fontSize: 15 }}></i>
+              </div>
+            </div>
           </div>
         </div>
       </div>
