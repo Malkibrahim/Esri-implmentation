@@ -3,7 +3,13 @@ import { loadModules } from "esri-loader";
 import { items } from "./fakeServer";
 import { governorate } from "./governorate";
 import { GetSales } from "./services";
+import PivotTableUI from "react-pivottable/PivotTableUI";
+import "react-pivottable/pivottable.css";
+
+import { PivotData } from "react-pivottable/Utilities";
 import axios from "axios";
+import react from "react";
+import logo from "./Smart-Logo-01.png";
 
 export class WebMapView extends React.Component {
   constructor(props) {
@@ -15,16 +21,24 @@ export class WebMapView extends React.Component {
   state = {
     data: items,
     govs: governorate,
-    currentGov: 2,
-    currentGovName: "Alexandria",
-
+    currentGov: 1,
+    currentGovName: "Cairo",
+    currentOutlet: "",
     curentLocation: null,
     index: -1,
     location: {},
-    zoom: 0,
+    zoom: 10,
+    repCode: null,
     currentRepArr: [],
     salesRepFlag: true,
     merchantFlag: true,
+    renderedObject: {},
+    merchantsGraphics: [],
+    salesGraphics: [],
+    currentSales: "",
+    curentSalesArray: [],
+    outlets: [],
+    view: null,
   };
 
   loadMap = () => {
@@ -39,6 +53,13 @@ export class WebMapView extends React.Component {
         "esri/widgets/Search",
         "esri/tasks/Locator",
         "esri/Graphic",
+        "esri/views/draw/DrawAction",
+        "esri/widgets/Locate",
+        "esri/geometry/geometryEngine",
+        "esri/tasks/RouteTask",
+        "esri/tasks/support/RouteParameters",
+        "esri/tasks/support/FeatureSet",
+        "esri/intl",
       ],
       { css: true }
     ).then(
@@ -50,7 +71,13 @@ export class WebMapView extends React.Component {
         GraphicsLayer,
         CoordinateConversion,
         Search,
+        intl,
         Locator,
+        Locate,
+        geometryEngine,
+        RouteTask,
+        RouteParameters,
+        FeatureSet,
       ]) => {
         const map = new ArcGISMap({
           basemap: "topo-vector",
@@ -60,19 +87,38 @@ export class WebMapView extends React.Component {
           map: map,
           center:
             this.state.curentLocation == null
-              ? [29.9187387, 31.2000924]
+              ? [31.2357116, 30.0444196]
               : [this.state.curentLocation.lat, this.state.curentLocation.long],
-          zoom: 11,
+          zoom: this.state.zoom,
         });
+        this.setState({ view });
+
+        // Do something with the bundle
+
+        // Set the locale to French
+
+        // intl.setLocale("ar");
         console.log(this.mapRef.current);
         var graphicsLayer = new GraphicsLayer();
         map.add(graphicsLayer);
+        //////////////////location btn///////////
+        // var locateBtn = new Locate({
+        //   view: view,
+        // });
+
+        // // Add the locate widget to the top left corner of the view
+        // view.ui.add(locateBtn, {
+        //   position: "top-left",
+        // });
+        // //////////////////location btn///////////
+
+        this.getSales(Graphic, graphicsLayer, this.state.currentGov);
         /////scrolling zoom in & out
 
         var coordinateConversionWidget = new CoordinateConversion({
           view: view,
         });
-        // view.ui.add(coordinateConversionWidget, "bottom-right");
+        view.ui.add(coordinateConversionWidget, "bottom-right");
         // view.ui.add(coordsWidget, "bottom-right");
         const showCoordinates = (pt) => {
           var coords =
@@ -85,38 +131,61 @@ export class WebMapView extends React.Component {
             " | Zoom " +
             view.zoom;
           coordinateConversionWidget.innerHTML = coords;
+          // const points = getCoordsFromScreenPoint();
+          // console.log(points);
           // console.log(coordinateConversionWidget);
           console.log(view.zoom);
-          this.setState({ zoom: view.zoom });
-          if (view.zoom == 12 && this.state.salesRepFlag == true) {
-            // debugger;
-            this.setState({ salesRepFlag: false });
-            this.getSales(Graphic, graphicsLayer, this.state.currentGov);
-          }
-          if (view.zoom == 14 && this.state.merchantFlag == true) {
-            this.setState({ merchantFlag: false });
 
-            this.state.currentRepArr.map((item) => {
-              this.getMerchants(Graphic, graphicsLayer, item.rep_code);
-            });
-            if (view.zoom == 12 && this.state.salesRepFlag == false) {
-              this.setState({ salesRepFlag: true });
-              console.log("drilledUp");
-            }
-            if (view.zoom == 14 && this.state.salesRepFlag == false) {
-              this.setState({ salesRepFlag: true });
+          //   this.setState({ zoom: view.zoom });
+          //   if (view.zoom == 12 && this.state.salesRepFlag == true) {
+          //     debugger;
+          //     this.setState({ salesRepFlag: false });
+          //     this.setState({ zoom: 12 });
 
-              console.log("drilledUp");
-            }
-          }
+          //     this.getSales(Graphic, graphicsLayer, this.state.currentGov);
+          //   }
+          //   // else if (view.zoom == 14 && this.state.merchantFlag == true) {
+          //   //   debugger;
+
+          //   //   this.setState({ merchantFlag: false });
+
+          //   //   this.getMerchants(Graphic, graphicsLayer, this.state.currentGov);
+          //   // }
+          //   // this.state.currentRepArr.map((item) => {
+          //   // });
+          //   else if (
+          //     view.zoom == 10 &&
+          //     this.state.salesRepFlag == false &&
+          //     this.state.merchantFlag == true
+          //   ) {
+          //     debugger;
+          //     this.setState({ salesRepFlag: true });
+          //     this.setState({ currSales: [] });
+          //     this.setState({ zoom: 11 });
+          //     // this.loadMap();
+          //     graphicsLayer.removeMany(this.state.salesGraphics);
+
+          //     console.log("drilledUp");
+          //   } else if (
+          //     view.zoom == 11 &&
+          //     this.state.merchantFlag == true &&
+          //     this.state.salesRepFlag == false
+          //   ) {
+          //     debugger;
+
+          //     this.setState({ merchantFlag: true });
+          //     graphicsLayer.removeMany(this.state.merchantsGraphics);
+
+          //     console.log("drilledUp");
+          //   }
         };
         view.watch("stationary", function (isStationary) {
           showCoordinates(view.center);
         });
 
-        // view.on("pointer-move", function (evt) {
-        //   showCoordinates(view.toMap({ x: evt.x, y: evt.y }));
-        // });
+        view.on("pointer-move", function (evt) {
+          showCoordinates(view.toMap({ x: evt.x, y: evt.y }));
+        });
         /////scrolling zoom in & out
 
         ///////search to place
@@ -125,6 +194,8 @@ export class WebMapView extends React.Component {
         });
 
         view.ui.add(search, "top-right");
+
+        var address;
         view.on("click", function (evt) {
           search.clear();
           view.popup.clear();
@@ -133,13 +204,15 @@ export class WebMapView extends React.Component {
             var params = {
               location: evt.mapPoint,
             };
-            var address;
+
             geocoder.locationToAddress(params).then(
               function (response) {
+                view.zoom = this.state.zoom;
                 // Show the address found
                 debugger;
                 address = response.address;
                 console.log(evt.mapPoint, address);
+                debugger;
 
                 showPopup(address, evt.mapPoint);
               },
@@ -150,9 +223,15 @@ export class WebMapView extends React.Component {
             );
           }
         });
-
+        view.watch("center", function (newValue, oldValue, propertyName) {
+          console.log(
+            propertyName + " changed",
+            newValue.__accessor__.store._values.get("x"),
+            newValue.__accessor__.store._values.get("y")
+          );
+        });
         function showPopup(address, pt) {
-          // console.log(address, pt.longitude, pt.latitude);
+          console.log(address, pt);
           view.popup.open({
             title:
               +Math.round(pt.longitude * 100000) / 100000 +
@@ -166,6 +245,7 @@ export class WebMapView extends React.Component {
           url:
             "https://services3.arcgis.com/GVgbJbqm8hXASVYi/arcgis/rest/services/Trailheads/FeatureServer/0",
         });
+
         search.sources.push({
           layer: trailsLayer,
           searchFields: ["TRL_NAME"],
@@ -176,9 +256,10 @@ export class WebMapView extends React.Component {
           name: "Trailheads",
           placeholder: "Example: Medea Creek Trail",
         });
-        ///////search to place
 
-        /////find plkaces/////
+        // /////search to place
+
+        // // /find plkaces/; ////
         // var places = [
         //   "Coffee shop",
         //   "Gas station",
@@ -261,8 +342,84 @@ export class WebMapView extends React.Component {
         //     }
         //   });
         // });
-        /////find plkaces/////
+        // ///find plkaces/////
         this.drawGovs(Graphic, graphicsLayer);
+        ///////////////////////nearest position///////////////////
+        // var routeTask = new RouteTask({
+        //   url:
+        //     "https://utility.arcgis.com/usrsvcs/appservices/<your-id>/rest/services/World/Route/NAServer/Route_World/solve",
+        // });
+        // view.on("click", function (event) {
+        //   if (view.graphics.length === 0) {
+        //     addGraphic("start", event.mapPoint);
+        //   } else if (view.graphics.length === 1) {
+        //     addGraphic("finish", event.mapPoint);
+        //     //*** ADD ***//
+        //     getRoute();
+        //   } else {
+        //     view.graphics.removeAll();
+        //     addGraphic("start", event.mapPoint);
+        //   }
+        // });
+
+        // function addGraphic(type, point) {
+        //   var graphic = new Graphic({
+        //     symbol: {
+        //       type: "simple-marker",
+        //       color: type === "start" ? "white" : "black",
+        //       size: "8px",
+        //     },
+        //     geometry: point,
+        //   });
+        //   view.graphics.add(graphic);
+        // }
+        // function getRoute() {
+        //   // Setup the route parameters
+        //   var routeParams = new RouteParameters({
+        //     stops: new FeatureSet({
+        //       features: view.graphics.toArray(), // Pass the array of graphics
+        //     }),
+        //     returnDirections: true,
+        //   });
+        //   // Get the route
+        //   routeTask.solve(routeParams).then(function (data) {
+        //     // Display the route
+        //     data.routeResults.forEach(function (result) {
+        //       result.route.symbol = {
+        //         type: "simple-line",
+        //         color: [5, 150, 255],
+        //         width: 3,
+        //       };
+        //       view.graphics.add(result.route);
+        //     });
+
+        //     //*** ADD ***//
+
+        //     // Display the directions
+        //     var directions = document.createElement("ol");
+        //     directions.classList =
+        //       "esri-widget esri-widget--panel esri-directions__scroller";
+        //     directions.style.marginTop = 0;
+        //     directions.style.paddingTop = "15px";
+
+        //     // Show the directions
+        //     var features = data.routeResults[0].directions.features;
+        //     features.forEach(function (result, i) {
+        //       var direction = document.createElement("li");
+        //       direction.innerHTML =
+        //         result.attributes.text +
+        //         " (" +
+        //         result.attributes.length.toFixed(2) +
+        //         " miles)";
+        //       directions.appendChild(direction);
+        //     });
+
+        //     // Add directions to the view
+        //     view.ui.empty("top-right");
+        //     view.ui.add(directions, "top-right");
+        //   });
+        // }
+        ///////////////////////nearest position///////////////////
       }
     );
   };
@@ -282,7 +439,7 @@ export class WebMapView extends React.Component {
           color: [255, 255, 255],
           width: 2,
         },
-        size: 10,
+        size: 11,
       };
       var attributes = {
         Name: "" + "governorate  : " + i.ar_name + "",
@@ -290,16 +447,24 @@ export class WebMapView extends React.Component {
       };
 
       const getInfo = async (feature) => {
-        this.setState({ index });
-        console.log(this.state.govs[index]);
-        const gov_code = { gov_code: this.state.govs[index].gov_code };
-        this.setState({ currentGov: gov_code });
-        console.log(gov_code);
+        this.setState({ currentGov: this.state.govs[index].gov_code });
+
+        if (this.state.currSales.length !== 0) {
+          this.setState({ renderedObject: i });
+          console.log(this.state.govs[index]);
+          const gov_code = { gov_code: this.state.govs[index].gov_code };
+          this.setState({ currentGov: gov_code.gov_code });
+          console.log(gov_code.gov_code);
+          this.setState({ curentLocation: this.state.govs[index].location });
+        } else {
+          console.log("yarab");
+        }
       };
 
       var popupTemplate = {
         title: "{Name}",
         // content: "" + "merchant code : " + i.damen_merchant_code + "",
+
         content: getInfo,
       };
 
@@ -315,12 +480,18 @@ export class WebMapView extends React.Component {
     });
   };
 
-  getSales = async (Graphic, graphicsLayer, gov_code) => {
-    // debugger;
+  getSales = async (Graphic, graphicsLayer, govCode) => {
+    debugger;
     // const test = await GetSales(gov_code);
     // console.log(test.data);
+    // .post("http://172.22.224.1:16797/bi-api/maps/reps/by-gov", {
+    //   gov_code: gov_code,
+    // .get("http://10.22.1.221/bi-api/maps/reps/all")
+    // })
     await axios
-      .post("http://10.43.30.182:16797/bi-api/maps/reps", gov_code)
+      .post("http://10.22.1.221/bi-api/maps/reps/by-gov", {
+        gov_code: govCode,
+      })
       .then((res) => {
         console.log(res.data);
         this.setState({ currentRepArr: res.data });
@@ -349,13 +520,41 @@ export class WebMapView extends React.Component {
             Name: "" + "Sales code : " + item.rep_code + "",
             Location: " Point Dume State Beach",
           };
+          if (this.state.repCode !== null) {
+            this.getMerchants(Graphic, graphicsLayer, this.state.repCode);
+          }
 
           const getInfo = (feature) => {
+            this.setState({ renderedObject: item });
             this.setState({ index });
-            let content = "" + "district_name : " + item.district_name + "";
 
-            this.getMerchants(Graphic, graphicsLayer, item.rep_code);
+            let content = "" + "اسم الحي : " + item.district_name + "";
 
+            //check if merchants exist
+
+            // if (this.state.merchantsGraphics.length > 0) {
+            //   //remove existing merchants
+
+            //   graphicsLayer.removeMany(this.state.merchantsGraphics);
+
+            //   this.setState({ merchantsGraphics: [] });
+
+            //   if (item.rep_code !== this.state.currentSales) {
+            //     this.setState({ currentSales: item.rep_code });
+
+            // this.getMerchants(Graphic, graphicsLayer, item.rep_code);
+            // }
+            // } else {
+            //   //first load merchants
+
+            //   this.setState({ currentSales: item.rep_code });
+
+            //   this.getMerchants(Graphic, graphicsLayer, item.rep_code);
+            // }
+
+            // console.log("hh",pointGraphic3)
+
+            // this.getMerchants(Graphic, graphicsLayer, item.rep_code);
             return content;
           };
           const popupTemplateSales = {
@@ -371,6 +570,9 @@ export class WebMapView extends React.Component {
             popupTemplate: popupTemplateSales,
             index: index,
           });
+          this.setState({
+            salesGraphics: [...this.state.salesGraphics, pointGraphic3],
+          });
           graphicsLayer.add(pointGraphic3);
         });
       })
@@ -379,7 +581,7 @@ export class WebMapView extends React.Component {
 
   getMerchants = async (Graphic, graphicsLayer, rep_code) => {
     await axios
-      .post("http://10.43.30.182:16797/bi-api/maps/merchs", {
+      .post("http://10.22.1.221/bi-api/maps/merchs/by-rep", {
         rep_code: rep_code,
       })
       .then((res) => {
@@ -404,12 +606,12 @@ export class WebMapView extends React.Component {
             size: 10,
           };
           const attributesSales = {
-            Name: "" + "Merchant code : " + item.merch_code + "",
+            Name: "" + item.name + " : " + "الاسم" + "",
             Location: " Point Dume State Beach",
           };
 
           const getInfo = (feature) => {
-            this.setState({ index });
+            this.setState({ renderedObject: item });
             // let content =
             //   " " + "district_name : " + item.district_name + "";
 
@@ -417,7 +619,7 @@ export class WebMapView extends React.Component {
           };
           const popupTemplateSales = {
             title: "{Name}",
-            // content: "" + "merchant code : " + i.damen_merchant_code + "",
+            // content: "" + "merchant code : " + item.address + "",
             content: getInfo,
           };
 
@@ -428,8 +630,13 @@ export class WebMapView extends React.Component {
             popupTemplate: popupTemplateSales,
             index: index,
           });
+          this.setState({
+            merchantsGraphics: [...this.state.merchantsGraphics, pointGraphic3],
+          });
           graphicsLayer.add(pointGraphic3);
         });
+
+        // graphicsLayer.add(pointGraphic3);
       });
   };
   handleChange = (e) => {
@@ -451,6 +658,8 @@ export class WebMapView extends React.Component {
       console.log(this.state.curentLocation.lat);
       console.log(this.state.curentLocation.long);
     }
+    this.setState({ zoom: 10 });
+
     this.loadMap();
   };
   handleCurrentLoc = () => {
@@ -468,13 +677,30 @@ export class WebMapView extends React.Component {
       this.loadMap();
     });
   };
+  handleChangeRepsByGov = (e) => {
+    debugger;
+    const currentOutlet = e.target.value;
+    this.setState({ currentOutlet });
+    const item = this.state.currentRepArr.find(
+      (i) => i.name.split(" ").join("") == currentOutlet.split(" ").join("")
+    );
+    this.setState({ zoom: 15 });
+    const loc = { lat: item.location.long, long: item.location.lat };
+    this.setState({ curentLocation: loc }, () => {
+      this.setState({ location: loc });
+      console.log(this.state.curentLocation);
+      this.setState({ repCode: item.rep_code });
+      this.loadMap();
+    });
+  };
+  handleShowInMap = () => {};
   componentDidMount() {
     // setInterval(() => {
-    //   let new_data = [...this.state.data];
+    //   let new_data = [...this.state.govs];
 
     //   new_data[0] = {
     //     ...new_data[0],
-    //     x_coordinate: new_data[0].x_coordinate + 30.0,
+    //     gov_code: new_data[0].gov_code + 1,
     //   };
 
     //   this.setState({ data: new_data });
@@ -508,21 +734,37 @@ export class WebMapView extends React.Component {
     }
   }
 
+  drawTable = () => {
+    // return Object.keys(this.state.renderedObject).map((key) => {
+    //   if (key !== "location" && key !== "status") {
+    return (
+      <div style={{ marginTop: 25 }}>
+        <span style={{ color: "blue", float: "right" }}> : الاسم </span>
+        <span style={{ float: "right" }}>
+          {this.state.renderedObject["name"].toString()}
+        </span>
+        <br />
+        <span style={{ color: "blue", float: "right" }}> : العنوان</span>
+        <span style={{ float: "right" }}>
+          {this.state.renderedObject["address"].toString()}
+        </span>
+        <br />
+        <span style={{ color: "blue", float: "right" }}> : رقم التليفون</span>
+        <span style={{ float: "right" }}>
+          {this.state.renderedObject["mobile"].toString()}
+        </span>
+      </div>
+    );
+    //   }
+    // });
+  };
   render() {
     console.log("indexxxxxxxxx", this.state.index);
 
     // this.loadMap()
     return (
       <div>
-        <select
-          value={this.state.currentGovName}
-          onChange={(e) => this.handleChange(e)}
-        >
-          {this.state.govs.map((i) => {
-            return <option>{i.en_name}</option>;
-          })}
-        </select>
-        <button
+        {/* <button
           style={{
             color: "#1f3c88",
             position: "absolute",
@@ -535,7 +777,7 @@ export class WebMapView extends React.Component {
           onClick={() => this.handleCurrentLoc()}
         >
           <i class="fas fa-map-marker-alt fa-2x"></i>
-        </button>
+        </button> */}
         <div style={{ display: "flex" }}>
           <div
             className="webmap"
@@ -545,28 +787,20 @@ export class WebMapView extends React.Component {
           <div
             style={{ display: "flex", flexDirection: "column", padding: 10 }}
           >
-            {this.state.index !== -1 &&
-              Object.keys(this.state.data[this.state.index]).map((key) => {
-                return (
-                  <view>
-                    <view>{key + "  :  "}</view>
-                    <view>{this.state.data[this.state.index][key]}</view>
-                  </view>
-                );
-              })}
-
-            <div
+            {/* <div
               style={{
                 display: "flex",
                 flexDirection: "column",
                 border: "1px solid grey",
+                padding: 10,
+                width: 200,
               }}
             >
               <div>
                 <span>Governorate : </span>
                 <i
                   class="fa fa-caret-up"
-                  style={{ fontSize: 30, paddingTop: 10 }}
+                  style={{ fontSize: 30, position: "relative", top: 5 }}
                 ></i>
               </div>
               <div>
@@ -577,7 +811,63 @@ export class WebMapView extends React.Component {
                 <span>Merchants : </span>
                 <i class="fa fa-square" style={{ fontSize: 15 }}></i>
               </div>
+            </div> */}
+            <div style={{ display: "flex", flexDirection: "row" }}>
+              <span>
+                <select
+                  value={this.state.currentGovName}
+                  onChange={(e) => this.handleChange(e)}
+                >
+                  {this.state.govs.map((i) => {
+                    return <option>{i.ar_name}</option>;
+                  })}
+                </select>
+              </span>
+              <span style={{ color: "blue", float: "right" }}>
+                {"  : " + "المحافظه"}
+              </span>
             </div>
+            <br />
+            <div style={{ display: "flex", flexDirection: "row" }}>
+              <span>
+                <select
+                  value={this.state.currentOutlet}
+                  onChange={(e) => this.handleChangeRepsByGov(e)}
+                >
+                  <option></option>);
+                  {this.state.currentRepArr.map((i) => {
+                    return (
+                      <react.Fragment>
+                        <option>{i.name}</option>
+                      </react.Fragment>
+                    );
+                  })}
+                </select>
+              </span>
+              <span style={{ color: "blue", float: "right" }}>
+                {"  : " + "المندوبين"}
+              </span>
+            </div>
+
+            {/* <PivotTableUI />
+            <button onClick={this.handleShowInMap} style={{ marginTop: 25 }}>
+              Show in map
+            </button> */}
+            {Object.entries(this.state.renderedObject).length > 0 &&
+              this.drawTable()}
+            <button onClick={this.loadMap} style={{ marginTop: 25 }}>
+              Reset Map
+            </button>
+            <img
+              style={{
+                width: "300px",
+                height: "239px",
+                bottom: "10px",
+                position: "absolute",
+              }}
+              src={logo}
+              alt="photo"
+            />
           </div>
         </div>
       </div>

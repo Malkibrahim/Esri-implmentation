@@ -4,7 +4,7 @@ export async function GetSales(govCode) {
   debugger;
 
   const { data } = await axios.post(
-    "http://10.43.30.182:16797/bi-api/maps/reps",
+    "http://10.43.30.182:16797/bi-api/maps/reps/by-gov",
     govCode
   );
   console.log(data);
@@ -15,7 +15,7 @@ export async function GetMerchants(salesCode) {
   // debugger
 
   const { data } = await axios.get(
-    "http://10.43.30.182:16797/bi-api/maps/merchs",
+    "http://10.43.30.182:16797/bi-api/maps/merchs/by-rep",
     salesCode
   );
   console.log(data);
